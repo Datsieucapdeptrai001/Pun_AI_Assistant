@@ -1,6 +1,11 @@
 # Chặn file mật khẩu
 **/.env
 
+# Chặn Môi trường ảo Python
+.venv/
+venv/
+env/
+
 # Chặn rác Python
 __pycache__/
 *.pyc
