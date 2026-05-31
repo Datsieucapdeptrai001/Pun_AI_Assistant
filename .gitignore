@@ -1,0 +1,10 @@
+# Chặn file mật khẩu
+**/.env
+
+# Chặn rác Python
+__pycache__/
+*.pyc
+
+# Chặn rác Flutter/Dart
+.dart_tool/
+build/
