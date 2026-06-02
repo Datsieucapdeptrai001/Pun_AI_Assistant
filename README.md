@@ -1,4 +1,17 @@
-# 🤖 Trợ Lý AI Cá Nhân (Pủn AI Agent)
+# 🤖 Pủn AI Assistant - Core Backend
+
+**Pủn AI Agent** là một hệ thống Đặc vụ Trí tuệ Nhân tạo Cá nhân được thiết kế tối ưu cho trải nghiệm Voice-First (Giao diện 1 điểm chạm), giúp người lớn tuổi tương tác tự nhiên.
+
+## 🏗️ Kiến Trúc Hệ Thống (Microservices)
+Dự án được chia thành 2 module độc lập:
+1. **Backend (Python/FastAPI):** Lõi AI (`ai_engine.py`) xử lý Prompt, giao tiếp Gemini 2.5 Flash API. Cổng giao tiếp (`main.py`) quản lý chuẩn JSON bằng Pydantic.
+2. **Frontend (Flutter):** App Mobile làm nhiệm vụ thu âm (STT) và phát lại âm thanh (TTS).
+
+## 🚀 Hướng dẫn khởi chạy Backend (Local)
+
+**1. Kích hoạt môi trường ảo:**
+```bash
+.\.venv\Scripts\Activate.ps1
 
 ## 📖 Giới Thiệu Dự Án
 **Pủn AI Agent** là một hệ thống Đặc vụ Trí tuệ Nhân tạo Cá nhân (Personal AI Agent) được thiết kế đặc biệt với tiêu chí "Zero-UI" (Giao diện tối giản). 
