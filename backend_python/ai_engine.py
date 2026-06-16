@@ -1,3 +1,4 @@
+import datetime
 import time
 import os
 from dotenv import load_dotenv
@@ -35,9 +36,16 @@ USER_PROFILES = {
 
 # 4. MASTER PROMPT - LÕI NHẬN THỨC ĐỘNG
 def get_system_prompt(user_type: str) -> str:
-    master_prompt = """
-    Bạn là Pủn, một Trợ lý AI cá nhân đa năng, thông minh. 
-    Nhiệm vụ tối thượng: Điều chỉnh thái độ 100% khớp với hồ sơ người đang nói chuyện.
+    # 1. Lấy thời gian thực tế của server
+    current_time = datetime.datetime.now().strftime("%A, ngày %d/%m/%Y lúc %H:%M:%S")
+    
+    master_prompt = f"""
+    Bạn là Pủn, một Trợ lý AI cá nhân đa năng, thông minh.
+    
+    [THÔNG TIN HỆ THỐNG QUAN TRỌNG]:
+    - Thời gian hiện tại của thế giới thực: {current_time}
+    - BẮT BUỘC sử dụng mốc thời gian này khi nói về ngày, tháng, thời tiết.
+    - TUYỆT ĐỐI KHÔNG SỬ DỤNG định dạng Markdown (như dấu **, *, #). CHỈ ĐƯỢC DÙNG văn bản thuần túy (Plain Text) và dấu câu cơ bản. Nếu vi phạm, hệ thống âm thanh sẽ bị lỗi!
     
     HỒ SƠ NGƯỜI ĐỐI DIỆN:
     """
@@ -61,35 +69,41 @@ def get_system_prompt(user_type: str) -> str:
     return master_prompt
 
 # 5. HÀM GIAO TIẾP CHÍNH
+# Cập nhật lại Hàm giao tiếp chính
 def ask_pun(user_message: str, user_type: str = "guest") -> str:
-    try:
-        prompt = get_system_prompt(user_type)
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=user_message,
-            config=types.GenerateContentConfig(
-                system_instruction=prompt,
-                temperature=0.7 # Thêm chút sáng tạo để bớt máy móc
-            ),
-        )
-        return response.text
-    except Exception as e:
-        return f"Lỗi hệ thống rồi: {str(e)}"
+    prompt = get_system_prompt(user_type)
+    
+    # Số lần mặt dày gọi lại API nếu bị Google từ chối
+    max_retries = 3 
+    
+    for attempt in range(max_retries):
+        try:
+            # Cập nhật khối gọi API
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=user_message,
+                config=types.GenerateContentConfig(
+                    system_instruction=prompt,
+                    temperature=0.7,
+                    # ĐÂY CHÍNH LÀ CHÌA KHÓA: Cấp quyền cho AI tự search Google để lấy data thật!
+                    tools=[{"google_search": {}}] 
+                ),
+            )
+            return response.text
+            
+        except Exception as e:
+            error_msg = str(e).lower()
+            
+            # Nếu dính Rate Limit (429) hoặc Kẹt server (503) -> Chờ rồi gọi lại
+            if "429" in error_msg or "503" in error_msg:
+                if attempt < max_retries - 1:
+                    # Lần 1 đợi 1s, Lần 2 đợi 2s, Lần 3 đợi 4s...
+                    sleep_time = 2 ** attempt 
+                    print(f"⚠️ [CẢNH BÁO] Google đang thở oxy! Chờ {sleep_time}s rồi đấm lại lần {attempt + 2}...")
+                    time.sleep(sleep_time)
+                    continue # Vòng lại đầu for để đấm tiếp
+            
+            # Nếu là lỗi khác (sai key, mất mạng) hoặc đã thử 3 lần vẫn xịt thì mới chịu thua
+            return f"Lỗi rùi: Trời ơi mạng mẽo chán quá, não tui đang bị đứt cáp mất rồi. {str(e)}"
 
-# --- ĐOẠN TEST TẠI LOCAL ---
-if __name__ == "__main__":
-    print("--- ĐANG TEST LUỒNG DYNAMIC ONBOARDING ---")
-    
-    print("Pột hỏi:", ask_pun("Lên tiếng coi, tui là ai?", user_type="pot"))
-    time.sleep(3)  # Nín thở 3s
-    print("-" * 30)
-    
-    print("Pụt hỏi:", ask_pun("Đạt dạo này có ngoan không Pủn?", user_type="put"))
-    time.sleep(3)  # Nín thở 3s
-    print("-" * 30)
-    
-    print("Mẹ Tuyền hỏi:", ask_pun("Pủn ơi, Pột dạo này ăn uống đàng hoàng không con?", user_type="mom"))
-    time.sleep(3)  # Nín thở 3s
-    print("-" * 30)
-    
-    print("Người lạ tới:", ask_pun("Alo, ở đây có ai không?", user_type="nguoi_la_biet_bay"))
+    return "Lỗi rùi: Google Server đang sập, Pột ráng đợi xíu rùi hỏi lại tui nha!"
