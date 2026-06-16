@@ -1,5 +1,6 @@
 import datetime
 import time
+import re
 import os
 from dotenv import load_dotenv
 from google import genai
@@ -89,7 +90,13 @@ def ask_pun(user_message: str, user_type: str = "guest") -> str:
                     tools=[{"google_search": {}}] 
                 ),
             )
-            return response.text
+            # Lấy câu trả lời thô từ AI
+            raw_text = response.text
+            
+            # DÙNG VŨ LỰC: Cạo sạch mọi dấu *, #, _, và ` (backtick)
+            clean_text = re.sub(r'[*#_`]', '', raw_text)
+            
+            return clean_text
             
         except Exception as e:
             error_msg = str(e).lower()
