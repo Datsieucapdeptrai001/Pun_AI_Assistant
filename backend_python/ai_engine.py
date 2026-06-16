@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types
 
 # 0. Import hàm tạo âm thanh ăn liền của FPT
-from voice_engine import generate_fpt_audio
+from backend_python.voice_engine import generate_fpt_audio
 
 # 1. Load biến môi trường
 load_dotenv()
