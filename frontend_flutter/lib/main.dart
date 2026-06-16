@@ -20,7 +20,6 @@ class PunAiApp extends StatelessWidget {
           brightness: Brightness.dark, 
         ),
       ),
-      // Xóa dòng home đi, thay bằng 2 dòng này:
       initialRoute: '/', // Điểm xuất phát là màn hình '/'
       onGenerateRoute: AppRouter.generateRoute, // Giao quyền điều hướng cho Router
     );

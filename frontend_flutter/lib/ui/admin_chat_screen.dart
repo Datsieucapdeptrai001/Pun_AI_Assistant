@@ -3,7 +3,9 @@ import 'package:audioplayers/audioplayers.dart';
 import '../services/api_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
-  const AdminChatScreen({super.key});
+  final String userType; // Thêm biến này để nhận diện nhân vật
+
+  const AdminChatScreen({super.key, required this.userType});
 
   @override
   State<AdminChatScreen> createState() => _AdminChatScreenState();
@@ -28,7 +30,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
 
     try {
       // 2. Bắn API gọi não bộ Pủn
-      final response = await ApiService.chatWithPun(text, userType: 'pot');
+      final response = await ApiService.chatWithPun(text, userType: widget.userType);
 
       // 3. Xử lý câu trả lời thành công
       setState(() {
