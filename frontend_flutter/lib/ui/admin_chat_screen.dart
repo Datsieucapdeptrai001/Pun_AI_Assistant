@@ -56,7 +56,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           
           // PHÁT GIỌNG FPT Ở ĐÂY: Có link audio thì vã thẳng vào AudioPlayer
           if (response['audio_url'] != null) {
-            _audioPlayer.play(UrlSource(response['audio_url']));
+            // Cho App đợi 2 giây để FPT nặn xong file MP3 rồi mới cất mồm
+            Future.delayed(const Duration(seconds: 2), () {
+              _audioPlayer.play(UrlSource(response['audio_url']));
+            });
           }
 
           // ĐÃ XÓA: flutterTts.speak(replyText); -> Trả lại sự bình yên cho App!
