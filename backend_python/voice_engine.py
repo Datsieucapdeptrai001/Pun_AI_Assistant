@@ -1,28 +1,46 @@
-from gtts import gTTS
 import os
+import requests
+from dotenv import load_dotenv
 
-def speak_like_pun(text: str, output_file: str = "pun_voice.mp3"):
+# Nạp biến môi trường từ file .env
+load_dotenv()
+
+def generate_fpt_audio(text: str, voice_model: str = "linhsan") -> str:
     """
-    Hàm biến chữ thành file âm thanh MP3.
+    Gọi API FPT để biến chữ thành Link Âm Thanh (Giọng nữ miền Nam - linhsan).
     """
-    print(f"🎙️ Đang rặn giọng nói cho câu: '{text[:40]}...'")
-    try:
-        # lang='vi' là tiếng Việt, tld='com.vn' để lấy giọng chuẩn Việt Nam
-        tts = gTTS(text=text, lang='vi', tld='com.vn', slow=False)
-        tts.save(output_file)
-        print(f"✅ Đã xuất file âm thanh thành công: {output_file}")
-        return output_file
-    except Exception as e:
-        print(f"❌ Lỗi bể giọng rồi: {e}")
+    print(f"🎙️ Đang nhờ FPT đọc câu: '{text[:40]}...'")
+    
+    api_key = os.getenv("FPT_API_KEY")
+    if not api_key:
+        print("❌ Lỗi: Chưa có FPT_API_KEY trong file .env!")
         return None
 
-# --- ĐOẠN TEST CHẠY THỬ ---
-if __name__ == "__main__":
-    cau_noi = "Chào Pột, tui là Pủn đây! Ông mới lên Sài Gòn thì cày code nhẹ nhàng thôi, code xong nhớ ngủ sớm giữ sức khỏe nha."
+    url = "https://api.fpt.ai/hmi/tts/v5"
     
-    # Chạy hàm tạo âm thanh
-    file_mp3 = speak_like_pun(cau_noi)
+    # Cắt ngắn text để an toàn Quota FPT (100k ký tự/tháng)
+    safe_text = text[:400]
+    payload = safe_text.encode('utf-8')
     
-    # Lệnh này ép Windows tự động mở file MP3 lên phát luôn (chỉ chạy trên máy tính của ông)
-    if file_mp3:
-        os.system(f"start {file_mp3}")
+    headers = {
+        'api-key': api_key,
+        'speed': '', # Để trống là tốc độ chuẩn
+        'voice': voice_model
+    }
+    
+    try:
+        response = requests.post(url, data=payload, headers=headers)
+        response.raise_for_status() # Tự động quăng lỗi nếu API FPT sập
+        
+        result = response.json()
+        if "async" in result:
+            audio_link = result["async"]
+            print(f"✅ Đã có link nhạc FPT: {audio_link}")
+            return audio_link # FPT trả về cái Link URL, mình quăng cái Link này cho App
+        else:
+            print(f"❌ FPT trả về lỗi: {result}")
+            return None
+            
+    except Exception as e:
+        print(f"❌ Lỗi gọi API FPT TTS: {e}")
+        return None

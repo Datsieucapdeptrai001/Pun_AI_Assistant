@@ -3,7 +3,7 @@ import 'package:audioplayers/audioplayers.dart';
 import '../services/api_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
-  final String userType; // Thêm biến này để nhận diện nhân vật
+  final String userType; 
 
   const AdminChatScreen({super.key, required this.userType});
 
@@ -14,14 +14,30 @@ class AdminChatScreen extends StatefulWidget {
 class _AdminChatScreenState extends State<AdminChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<Map<String, String>> _messages = [];
+  
+  // Chỉ dùng duy nhất AudioPlayer để phát nhạc FPT
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // ĐÃ XÓA: _initTTS(); Không cần khởi tạo máy đọc robot nữa
+  }
+
+  @override
+  void dispose() {
+    _textController.dispose();
+    _audioPlayer.dispose();
+    // ĐÃ XÓA: flutterTts.stop();
+    super.dispose();
+  }
 
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    // 1. Cập nhật UI hiển thị tin nhắn của Pụt/Pột và bật vòng xoay
+    // 1. Cập nhật UI hiển thị tin nhắn và bật vòng xoay
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
       _isLoading = true;
@@ -35,22 +51,27 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       // 3. Xử lý câu trả lời thành công
       setState(() {
         if (response['status'] == 'success') {
-          _messages.add({'sender': 'pun', 'text': response['reply_text']});
-          // Có link audio thì phát nhạc luôn
+          final replyText = response['reply_text'];
+          _messages.add({'sender': 'pun', 'text': replyText});
+          
+          // PHÁT GIỌNG FPT Ở ĐÂY: Có link audio thì vã thẳng vào AudioPlayer
           if (response['audio_url'] != null) {
             _audioPlayer.play(UrlSource(response['audio_url']));
           }
+
+          // ĐÃ XÓA: flutterTts.speak(replyText); -> Trả lại sự bình yên cho App!
+
         } else {
           _messages.add({'sender': 'pun', 'text': 'Lỗi rùi: ${response['reply_text']}'});
         }
       });
     } catch (error) {
-      // BẮT LỖI: Server sập, đứt mạng, timeout...
+      // BẮT LỖI: Server sập, đứt mạng...
       setState(() {
         _messages.add({'sender': 'pun', 'text': 'Máy chủ đang bảo trì hoặc mạng lag. Ông ráng đợi xíu rùi nhắn lại nha!'});
       });
     } finally {
-      // BẢO HIỂM TỐI THƯỢNG: Luôn tắt vòng xoay dù thành công hay thất bại
+      // BẢO HIỂM: Luôn tắt vòng xoay
       setState(() {
         _isLoading = false;
       });
@@ -71,7 +92,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
       ),
       body: Column(
         children: [
-          // Khu vực hiển thị tin nhắn
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
@@ -94,9 +114,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
               },
             ),
           ),
-          // Hiển thị vòng xoay đang tải khi đợi API
           if (_isLoading) const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()),
-          // Khung nhập liệu
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(

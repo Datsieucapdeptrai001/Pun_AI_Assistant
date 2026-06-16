@@ -6,6 +6,9 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
+# 0. Import hàm tạo âm thanh ăn liền của FPT
+from voice_engine import generate_fpt_audio
+
 # 1. Load biến môi trường
 load_dotenv()
 API_KEY = os.getenv("GEMINI_API_KEY")
@@ -16,7 +19,7 @@ if not API_KEY:
 # 2. Khởi tạo Client
 client = genai.Client(api_key=API_KEY)
 
-# 3. CƠ SỞ DỮ LIỆU NHÂN CÁCH (Tách Data khỏi Logic)
+# 3. CƠ SỞ DỮ LIỆU NHÂN CÁCH
 USER_PROFILES = {
     "pot": {
         "name": "Pột (Nguyễn Tuấn Đạt)",
@@ -35,9 +38,8 @@ USER_PROFILES = {
     }
 }
 
-# 4. MASTER PROMPT - LÕI NHẬN THỨC ĐỘNG
+# 4. MASTER PROMPT
 def get_system_prompt(user_type: str) -> str:
-    # 1. Lấy thời gian thực tế của server
     current_time = datetime.datetime.now().strftime("%A, ngày %d/%m/%Y lúc %H:%M:%S")
     
     master_prompt = f"""
@@ -51,9 +53,7 @@ def get_system_prompt(user_type: str) -> str:
     HỒ SƠ NGƯỜI ĐỐI DIỆN:
     """
     
-    # Kéo profile từ Database ảo, nếu không có thì gán mác Người Lạ
     profile = USER_PROFILES.get(user_type)
-    
     if profile:
         master_prompt += f"""
         - Tên/Định danh: {profile['name']}
@@ -66,51 +66,54 @@ def get_system_prompt(user_type: str) -> str:
         - Quyền hạn: Khách (Guest).
         - Yêu cầu hành vi: Lịch sự, thân thiện. Nhiệm vụ của bạn là hãy chủ động hỏi tên của họ, hỏi xem họ có quan hệ gì với Pột không để làm quen.
         """
-        
     return master_prompt
 
-# 5. HÀM GIAO TIẾP CHÍNH
-# Cập nhật lại Hàm giao tiếp chính
-def ask_pun(user_message: str, user_type: str = "guest") -> str:
+# 5. HÀM GIAO TIẾP CHÍNH CÓ MỒM FPT
+def ask_pun(user_message: str, user_type: str = "guest") -> dict: # Đổi kiểu trả về thành dictionary
     prompt = get_system_prompt(user_type)
-    
-    # Số lần mặt dày gọi lại API nếu bị Google từ chối
     max_retries = 3 
     
     for attempt in range(max_retries):
         try:
-            # Cập nhật khối gọi API
             response = client.models.generate_content(
                 model='gemini-2.5-flash',
                 contents=user_message,
                 config=types.GenerateContentConfig(
                     system_instruction=prompt,
                     temperature=0.7,
-                    # ĐÂY CHÍNH LÀ CHÌA KHÓA: Cấp quyền cho AI tự search Google để lấy data thật!
                     tools=[{"google_search": {}}] 
                 ),
             )
-            # Lấy câu trả lời thô từ AI
-            raw_text = response.text
             
-            # DÙNG VŨ LỰC: Cạo sạch mọi dấu *, #, _, và ` (backtick)
+            # Cạo sạch rác Markdown
+            raw_text = response.text
             clean_text = re.sub(r'[*#_`]', '', raw_text)
             
-            return clean_text
+            # ---- ĐỘ LOA VÀO ĐÂY ----
+            # Ép FPT đọc cái đoạn chữ sạch sẽ kia
+            audio_url = generate_fpt_audio(clean_text)
+            
+            # Trả về cả chữ lẫn nhạc
+            return {
+                "reply_text": clean_text,
+                "audio_url": audio_url
+            }
             
         except Exception as e:
             error_msg = str(e).lower()
-            
-            # Nếu dính Rate Limit (429) hoặc Kẹt server (503) -> Chờ rồi gọi lại
             if "429" in error_msg or "503" in error_msg:
                 if attempt < max_retries - 1:
-                    # Lần 1 đợi 1s, Lần 2 đợi 2s, Lần 3 đợi 4s...
                     sleep_time = 2 ** attempt 
-                    print(f"⚠️ [CẢNH BÁO] Google đang thở oxy! Chờ {sleep_time}s rồi đấm lại lần {attempt + 2}...")
+                    print(f"⚠️ Chờ {sleep_time}s rồi thử lại lần {attempt + 2}...")
                     time.sleep(sleep_time)
-                    continue # Vòng lại đầu for để đấm tiếp
+                    continue 
             
-            # Nếu là lỗi khác (sai key, mất mạng) hoặc đã thử 3 lần vẫn xịt thì mới chịu thua
-            return f"Lỗi rùi: Trời ơi mạng mẽo chán quá, não tui đang bị đứt cáp mất rồi. {str(e)}"
+            return {
+                "reply_text": f"Lỗi rùi: Trời ơi mạng mẽo chán quá, não tui đang bị đứt cáp mất rồi. {str(e)}", 
+                "audio_url": None
+            }
 
-    return "Lỗi rùi: Google Server đang sập, Pột ráng đợi xíu rùi hỏi lại tui nha!"
+    return {
+        "reply_text": "Lỗi rùi: Google Server đang sập, ráng đợi xíu rùi hỏi lại tui nha!", 
+        "audio_url": None
+    }
