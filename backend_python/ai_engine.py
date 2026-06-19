@@ -1,3 +1,4 @@
+import random
 import datetime
 import time
 import re
@@ -11,13 +12,23 @@ from backend_python.voice_engine import generate_fpt_audio
 
 # 1. Load biến môi trường
 load_dotenv()
-API_KEY = os.getenv("GEMINI_API_KEY")
 
-if not API_KEY:
-    raise ValueError("Ê Pột! Quên bỏ GEMINI_API_KEY vào file .env rồi kìa!")
-
-# 2. Khởi tạo Client
-client = genai.Client(api_key=API_KEY)
+def get_client():
+    # Gom tất cả Key ông gắn trên Render vào một mẻ
+    key_list = [
+        os.getenv("GEMINI_API_KEY_1"),
+        os.getenv("GEMINI_API_KEY_2"),
+        os.getenv("GEMINI_API_KEY_3"),
+    ]
+    # Lọc ra những thằng có giá trị thật (đề phòng ông quên điền trên Render)
+    valid_keys = [k for k in key_list if k] 
+    
+    if not valid_keys:
+        raise ValueError("Ê Pột! Chưa gắn cái Key nào lên Render kìa!")
+        
+    # Quay xổ số, gọi trúng Key nào xài Key đó
+    selected_key = random.choice(valid_keys)
+    return genai.Client(api_key=selected_key)
 
 # 3. CƠ SỞ DỮ LIỆU NHÂN CÁCH
 USER_PROFILES = {
@@ -69,9 +80,12 @@ def get_system_prompt(user_type: str) -> str:
     return master_prompt
 
 # 5. HÀM GIAO TIẾP CHÍNH CÓ MỒM FPT
-def ask_pun(user_message: str, user_type: str = "guest") -> dict: # Đổi kiểu trả về thành dictionary
+def ask_pun(user_message: str, user_type: str = "guest") -> dict:
     prompt = get_system_prompt(user_type)
     max_retries = 3 
+    
+    # GỌI CLIENT MỚI Ở ĐÂY NÈ:
+    client = get_client() 
     
     for attempt in range(max_retries):
         try:
