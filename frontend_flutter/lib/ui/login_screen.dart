@@ -63,8 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () => _handleLogin('guest'),
               child: const Text('Khách lạ (Guest)', style: TextStyle(fontSize: 20, color: Colors.grey)),
             ),
-          ],flutter clean
-flutter run
+          ],
         ),
       ),
     );
