@@ -38,16 +38,30 @@ class _LoginScreenState extends State<LoginScreen> {
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          // TÌM CHỖ `children: [` RỒI DÁN ĐÈ CỤC NÀY VÀO:
           children: [
             ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, minimumSize: const Size(250, 50)),
               onPressed: () => _handleLogin('admin'),
-              child: const Text('Tui là Pột (Admin)', style: TextStyle(fontSize: 20)),
+              child: const Text('Tui là Pột (Admin)', style: TextStyle(fontSize: 20, color: Colors.white)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 15),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent, minimumSize: const Size(250, 50)),
               onPressed: () => _handleLogin('momi'),
               child: const Text('Mẹ của Pột (Momi)', style: TextStyle(fontSize: 20, color: Colors.white)),
+            ),
+            const SizedBox(height: 15),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.purpleAccent, minimumSize: const Size(250, 50)),
+              onPressed: () => _handleLogin('put'), // Quyền của Pụt
+              child: const Text('Tui là Pụt', style: TextStyle(fontSize: 20, color: Colors.white)),
+            ),
+            const SizedBox(height: 15),
+            OutlinedButton(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(250, 50)),
+              onPressed: () => _handleLogin('guest'),
+              child: const Text('Khách lạ (Guest)', style: TextStyle(fontSize: 20, color: Colors.grey)),
             ),
           ],
         ),
