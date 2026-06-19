@@ -5,7 +5,8 @@ import 'package:audioplayers/audioplayers.dart';
 import '../services/api_service.dart';
 
 class AutoListenScreen extends StatefulWidget {
-  const AutoListenScreen({super.key});
+  final String userType; // Đón nhận chức danh từ màn hình trước truyền sang
+  const AutoListenScreen({super.key, required this.userType});
 
   @override
   State<AutoListenScreen> createState() => _AutoListenScreenState();
@@ -16,75 +17,72 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   bool _isListening = false;
   String _text = 'Nhấn vào nút Micro bên dưới và nói...';
   bool _isLoading = false;
-  
-  // Loa để phát giọng FPT
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _requestMicrophonePermission(); // Vừa vào là xin phép ngay
+    _initSpeech(); // KHỞI TẠO ĐÚNG 1 LẦN DUY NHẤT LÚC MỞ TRANG
   }
 
-  // Hàm xin quyền Micro
-  Future<void> _requestMicrophonePermission() async {
-    var status = await Permission.microphone.status;
-    if (!status.isGranted) {
-      await Permission.microphone.request();
-    }
+  void _initSpeech() async {
+    await Permission.microphone.request();
+    await _speech.initialize(
+      onStatus: (status) {
+        print('Trạng thái Mic: $status');
+        // Khi người dùng im lặng, hệ thống tự báo ngắt
+        if (status == 'notListening' || status == 'done') {
+          setState(() => _isListening = false);
+          // Chỉ nổ súng gọi API nếu có chữ thật, chống spam
+          if (_text.isNotEmpty && 
+              _text != 'Nhấn vào nút Micro bên dưới và nói...' && 
+              _text != 'Đang nghe...' && 
+              !_isLoading) {
+            _sendMessageToPun();
+          }
+        }
+      },
+      onError: (errorNotification) {
+        print('Lỗi Mic: $errorNotification');
+        setState(() => _isListening = false);
+      },
+    );
   }
 
-  // Hàm xử lý Thu âm
   void _listen() async {
     if (!_isListening) {
-      bool available = await _speech.initialize(
-        onStatus: (status) {
-          print('Trạng thái Mic: $status');
-          // Khi người dùng ngừng nói, hệ thống báo 'done' hoặc 'notListening'
-          if (status == 'done' || status == 'notListening') {
-            setState(() => _isListening = false);
-            // Đợi 1 nhịp, nếu có chữ thì tự động gửi API luôn, khỏi bắt bấm nút
-            if (_text.isNotEmpty && _text != 'Nhấn vào nút Micro bên dưới và nói...') {
-              _sendMessageToPun();
-            }
-          }
-        },
-        onError: (errorNotification) => print('Lỗi Mic: $errorNotification'),
-      );
-
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (result) => setState(() {
+      setState(() {
+        _isListening = true;
+        _text = 'Đang nghe...'; // UX: Báo hiệu hệ thống đang mở tai
+      });
+      _speech.listen(
+        onResult: (result) {
+          setState(() {
             _text = result.recognizedWords;
-          }),
-          localeId: 'vi_VN', // TỐI QUAN TRỌNG: Ép bộ lọc nghe tiếng Việt
-        );
-      }
+          });
+        },
+        localeId: 'vi_VN',
+      );
     } else {
-      // Bấm thủ công để tắt
       setState(() => _isListening = false);
       _speech.stop();
     }
   }
 
-  // Hàm bắn API và phát nhạc (Giống màn Admin)
   Future<void> _sendMessageToPun() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
+    String textToSend = _text; 
+    
     try {
-      // Set mặc định userType là 'guest' để tối ưu phản hồi cho cô Tuyền
-      final response = await ApiService.chatWithPun(_text, userType: 'guest');
+      // Gắn đúng userType của Pột hoặc Guest vào đây!
+      final response = await ApiService.chatWithPun(textToSend, userType: widget.userType);
 
       setState(() {
         if (response['status'] == 'success') {
           _text = response['reply_text'];
           if (response['audio_url'] != null) {
-            // Vẫn giữ hoãn binh 2 giây cho FPT kịp nặn file
-            Future.delayed(const Duration(seconds: 2), () {
+            Future.delayed(const Duration(seconds: 1), () {
               _audioPlayer.play(UrlSource(response['audio_url']));
             });
           }
@@ -101,8 +99,8 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
 
   @override
   void dispose() {
-    _speech.cancel(); // Dọn rác micro
-    _audioPlayer.dispose(); // Dọn loa
+    _speech.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -114,7 +112,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: _listen,
         backgroundColor: _isListening ? Colors.red : Colors.blueAccent,
-        child: Icon(_isListening ? Icons.mic : Icons.mic_none, size: 35),
+        child: Icon(_isListening ? Icons.mic : Icons.mic_none, size: 35, color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -128,7 +126,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
                 Text(
                   _text,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
                 ),
             ],
           ),

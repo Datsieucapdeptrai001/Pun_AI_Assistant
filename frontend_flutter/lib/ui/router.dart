@@ -16,10 +16,9 @@ class AppRouter {
         // Hứng cục dữ liệu (arguments) truyền từ Login sang
         final userType = settings.arguments as String? ?? 'guest';
         return MaterialPageRoute(builder: (_) => AdminChatScreen(userType: userType));
-        
-      // ĐĂNG KÝ THÊM MÀN HÌNH RẢNH TAY Ở ĐÂY NÈ PỘT:
       case '/auto-listen':
-        return MaterialPageRoute(builder: (_) => const AutoListenScreen());
+        final userType = settings.arguments as String? ?? 'guest';
+        return MaterialPageRoute(builder: (_) => AutoListenScreen(userType: userType));
         
       default:
         return MaterialPageRoute(
