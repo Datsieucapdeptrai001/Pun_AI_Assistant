@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class AdminChatScreen extends StatefulWidget {
-  final String userType; 
-
+  final String userType;
   const AdminChatScreen({super.key, required this.userType});
 
   @override
@@ -14,22 +14,13 @@ class AdminChatScreen extends StatefulWidget {
 class _AdminChatScreenState extends State<AdminChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<Map<String, String>> _messages = [];
-  
-  // Chỉ dùng duy nhất AudioPlayer để phát nhạc FPT
   final AudioPlayer _audioPlayer = AudioPlayer();
   bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // ĐÃ XÓA: _initTTS(); Không cần khởi tạo máy đọc robot nữa
-  }
 
   @override
   void dispose() {
     _textController.dispose();
     _audioPlayer.dispose();
-    // ĐÃ XÓA: flutterTts.stop();
     super.dispose();
   }
 
@@ -37,7 +28,6 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    // 1. Cập nhật UI hiển thị tin nhắn và bật vòng xoay
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
       _isLoading = true;
@@ -45,39 +35,28 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
     _textController.clear();
 
     try {
-      // 2. Bắn API gọi não bộ Pủn
       final response = await ApiService.chatWithPun(text, userType: widget.userType);
 
-      // 3. Xử lý câu trả lời thành công
       setState(() {
         if (response['status'] == 'success') {
           final replyText = response['reply_text'];
           _messages.add({'sender': 'pun', 'text': replyText});
           
-          // PHÁT GIỌNG FPT Ở ĐÂY: Có link audio thì vã thẳng vào AudioPlayer
           if (response['audio_url'] != null) {
-            // Cho App đợi 2 giây để FPT nặn xong file MP3 rồi mới cất mồm
             Future.delayed(const Duration(seconds: 2), () {
               _audioPlayer.play(UrlSource(response['audio_url']));
             });
           }
-
-          // ĐÃ XÓA: flutterTts.speak(replyText); -> Trả lại sự bình yên cho App!
-
         } else {
           _messages.add({'sender': 'pun', 'text': 'Lỗi rùi: ${response['reply_text']}'});
         }
       });
     } catch (error) {
-      // BẮT LỖI: Server sập, đứt mạng...
       setState(() {
-        _messages.add({'sender': 'pun', 'text': 'Máy chủ đang bảo trì hoặc mạng lag. Ông ráng đợi xíu rùi nhắn lại nha!'});
+        _messages.add({'sender': 'pun', 'text': 'Mạng lag quá Pột ơi!'});
       });
     } finally {
-      // BẢO HIỂM: Luôn tắt vòng xoay
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
     }
   }
 
@@ -89,7 +68,19 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.mic_none),
+            tooltip: 'Chế độ rảnh tay',
             onPressed: () => Navigator.pushNamed(context, '/auto-listen', arguments: widget.userType),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            tooltip: 'Đăng xuất',
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.remove('userType');
+              if (mounted) {
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+              }
+            },
           )
         ],
       ),

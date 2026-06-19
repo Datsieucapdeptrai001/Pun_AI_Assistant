@@ -1,45 +1,53 @@
 import 'package:flutter/material.dart';
-import 'admin_chat_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
-  // Hàm chuyển hướng kèm theo "tên thẻ" của nhân vật
-  void _goToChat(BuildContext context, String type) {
-    Navigator.pushNamed(
-      context, 
-      '/chat', 
-      arguments: type, // Ném cái tên phân quyền ('pot', 'put', 'mom') qua đây
-    );
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _checkSavedUser();
+  }
+
+  Future<void> _checkSavedUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUser = prefs.getString('userType');
+    if (savedUser != null && mounted) {
+      Navigator.pushReplacementNamed(context, '/chat', arguments: savedUser);
+    }
+  }
+
+  Future<void> _handleLogin(String type) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('userType', type);
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/chat', arguments: type);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Ai đang cầm máy đó?')),
+      appBar: AppBar(title: const Text('Ai đang xài Pủn vậy?')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: () => _goToChat(context, 'pot'),
-              child: const Text('Tui là Đạt (Pột)'),
+              onPressed: () => _handleLogin('admin'),
+              child: const Text('Tui là Pột (Admin)', style: TextStyle(fontSize: 20)),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => _goToChat(context, 'put'),
-              child: const Text('Tui là Thảo (Pụt)'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () => _goToChat(context, 'mom'),
-              child: const Text('Cô Tuyền đây'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              onPressed: () => _goToChat(context, 'guest'),
-              child: const Text('Người lạ / Khách'),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              onPressed: () => _handleLogin('momi'),
+              child: const Text('Mẹ của Pột (Momi)', style: TextStyle(fontSize: 20, color: Colors.white)),
             ),
           ],
         ),

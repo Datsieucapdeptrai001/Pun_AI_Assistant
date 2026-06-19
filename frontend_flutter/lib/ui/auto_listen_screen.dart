@@ -5,7 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import '../services/api_service.dart';
 
 class AutoListenScreen extends StatefulWidget {
-  final String userType; // Đón nhận chức danh từ màn hình trước truyền sang
+  final String userType;
   const AutoListenScreen({super.key, required this.userType});
 
   @override
@@ -23,18 +23,15 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
-    _initSpeech(); // KHỞI TẠO ĐÚNG 1 LẦN DUY NHẤT LÚC MỞ TRANG
+    _initSpeech();
   }
 
   void _initSpeech() async {
     await Permission.microphone.request();
     await _speech.initialize(
       onStatus: (status) {
-        print('Trạng thái Mic: $status');
-        // Khi người dùng im lặng, hệ thống tự báo ngắt
         if (status == 'notListening' || status == 'done') {
           setState(() => _isListening = false);
-          // Chỉ nổ súng gọi API nếu có chữ thật, chống spam
           if (_text.isNotEmpty && 
               _text != 'Nhấn vào nút Micro bên dưới và nói...' && 
               _text != 'Đang nghe...' && 
@@ -44,7 +41,6 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
         }
       },
       onError: (errorNotification) {
-        print('Lỗi Mic: $errorNotification');
         setState(() => _isListening = false);
       },
     );
@@ -54,7 +50,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
     if (!_isListening) {
       setState(() {
         _isListening = true;
-        _text = 'Đang nghe...'; // UX: Báo hiệu hệ thống đang mở tai
+        _text = 'Đang nghe...';
       });
       _speech.listen(
         onResult: (result) {
@@ -75,7 +71,6 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
     String textToSend = _text; 
     
     try {
-      // Gắn đúng userType của Pột hoặc Guest vào đây!
       final response = await ApiService.chatWithPun(textToSend, userType: widget.userType);
 
       setState(() {
