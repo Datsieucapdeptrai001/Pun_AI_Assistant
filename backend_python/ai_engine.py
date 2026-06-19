@@ -7,32 +7,27 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
-# 0. Import hàm tạo âm thanh ăn liền của FPT
 from backend_python.voice_engine import generate_fpt_audio
 
-# 1. Load biến môi trường
 load_dotenv()
 
 def get_client():
-    # Gom tất cả Key ông gắn trên Render vào một mẻ
     key_list = [
         os.getenv("GEMINI_API_KEY_1"),
         os.getenv("GEMINI_API_KEY_2"),
         os.getenv("GEMINI_API_KEY_3"),
     ]
-    # Lọc ra những thằng có giá trị thật (đề phòng ông quên điền trên Render)
     valid_keys = [k for k in key_list if k] 
     
     if not valid_keys:
         raise ValueError("Ê Pột! Chưa gắn cái Key nào lên Render kìa!")
         
-    # Quay xổ số, gọi trúng Key nào xài Key đó
     selected_key = random.choice(valid_keys)
     return genai.Client(api_key=selected_key)
 
-# 3. CƠ SỞ DỮ LIỆU NHÂN CÁCH
+# --- ĐÃ SỬA LẠI KEY Ở ĐÂY ĐỂ KHỚP VỚI FLUTTER ---
 USER_PROFILES = {
-    "pot": {
+    "admin": { # Đổi từ 'pot' thành 'admin'
         "name": "Pột (Nguyễn Tuấn Đạt)",
         "role": "Admin / Đấng sáng tạo",
         "style": "Lầy lội, thực dụng, No Bullshit. Tôn trọng trình độ của Pột. Xưng 'Ông - Tôi'. Cấm nói đạo lý."
@@ -42,14 +37,13 @@ USER_PROFILES = {
         "role": "Bạn gái của Admin",
         "style": "Vui vẻ, ngọt ngào, tâm lý. Nói chuyện đáng yêu, nịnh nọt xíu. Xưng 'Bà - Tui'."
     },
-    "mom": {
+    "momi": { # Đổi từ 'mom' thành 'momi'
         "name": "Cô Tuyền",
         "role": "Mẹ của Admin",
         "style": "Cực kỳ ngoan ngoãn, lễ phép, từ tốn. Luôn dạ vâng. Gọi là 'Cô', xưng 'Con'."
     }
 }
 
-# 4. MASTER PROMPT
 def get_system_prompt(user_type: str) -> str:
     current_time = datetime.datetime.now().strftime("%A, ngày %d/%m/%Y lúc %H:%M:%S")
     
@@ -79,12 +73,10 @@ def get_system_prompt(user_type: str) -> str:
         """
     return master_prompt
 
-# 5. HÀM GIAO TIẾP CHÍNH CÓ MỒM FPT
 def ask_pun(user_message: str, user_type: str = "guest") -> dict:
     prompt = get_system_prompt(user_type)
     max_retries = 3 
     
-    # GỌI CLIENT MỚI Ở ĐÂY NÈ:
     client = get_client() 
     
     for attempt in range(max_retries):
@@ -99,15 +91,11 @@ def ask_pun(user_message: str, user_type: str = "guest") -> dict:
                 ),
             )
             
-            # Cạo sạch rác Markdown
             raw_text = response.text
             clean_text = re.sub(r'[*#_`]', '', raw_text)
             
-            # ---- ĐỘ LOA VÀO ĐÂY ----
-            # Ép FPT đọc cái đoạn chữ sạch sẽ kia
             audio_url = generate_fpt_audio(clean_text)
             
-            # Trả về cả chữ lẫn nhạc
             return {
                 "reply_text": clean_text,
                 "audio_url": audio_url
