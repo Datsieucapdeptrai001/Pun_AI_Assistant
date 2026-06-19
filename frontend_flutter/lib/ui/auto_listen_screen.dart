@@ -17,6 +17,10 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   bool _isListening = false;
   String _text = 'Nhấn vào nút Micro bên dưới và nói...';
   bool _isLoading = false;
+  
+  // CỜ BẢO VỆ TỐI CAO: Chống trùng lặp lệnh do Race Condition
+  bool _hasSentRequest = false; 
+  
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
@@ -30,17 +34,25 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
     await Permission.microphone.request();
     await _speech.initialize(
       onStatus: (status) {
+        print('Trạng thái Mic từ hệ thống: $status');
+        
         if (status == 'notListening' || status == 'done') {
           setState(() => _isListening = false);
-          if (_text.isNotEmpty && 
+          
+          // CHỐT CHẶN: Chỉ nổ súng nếu CHƯA từng gửi request trong phiên nói này
+          if (!_hasSentRequest && 
+              _text.isNotEmpty && 
               _text != 'Nhấn vào nút Micro bên dưới và nói...' && 
               _text != 'Đang nghe...' && 
               !_isLoading) {
+            
+            _hasSentRequest = true; // Khóa chốt ngay lập tức!
             _sendMessageToPun();
           }
         }
       },
       onError: (errorNotification) {
+        print('Lỗi Mic: $errorNotification');
         setState(() => _isListening = false);
       },
     );
@@ -50,6 +62,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
     if (!_isListening) {
       setState(() {
         _isListening = true;
+        _hasSentRequest = false; // Reset lại cờ khi bắt đầu một phiên nói mới
         _text = 'Đang nghe...';
       });
       _speech.listen(
@@ -77,7 +90,8 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
         if (response['status'] == 'success') {
           _text = response['reply_text'];
           if (response['audio_url'] != null) {
-            Future.delayed(const Duration(seconds: 1), () {
+            // Tăng lên 2 giây cho mami thoải mái đợi FPT nặn nhạc giống màn Chat chữ
+            Future.delayed(const Duration(seconds: 2), () {
               _audioPlayer.play(UrlSource(response['audio_url']));
             });
           }
