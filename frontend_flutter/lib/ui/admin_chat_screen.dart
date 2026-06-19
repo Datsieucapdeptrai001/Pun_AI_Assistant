@@ -89,7 +89,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.mic_none),
-            onPressed: () => Navigator.pushNamed(context, '/auto-listen'),
+            onPressed: () => Navigator.pushNamed(context, '/auto-listen', arguments: widget.userType),
           )
         ],
       ),
