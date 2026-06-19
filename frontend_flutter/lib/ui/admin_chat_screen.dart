@@ -116,17 +116,23 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    decoration: const InputDecoration(
-                      hintText: 'Nhập tin nhắn chọc Pủn...',
-                      border: OutlineInputBorder(),
+                    // 1. KHÓA BÀN PHÍM KHI ĐANG LOAD
+                    enabled: !_isLoading, 
+                    decoration: InputDecoration(
+                      // 2. THAY ĐỔI DÒNG CHỮ GỢI Ý ĐỂ BÁO HIỆU
+                      hintText: _isLoading ? 'Pủn đang suy nghĩ...' : 'Nhập tin nhắn chọc Pủn...',
+                      border: const OutlineInputBorder(),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
+                    // 3. KHÓA ENTER TRÊN BÀN PHÍM
+                    onSubmitted: _isLoading ? null : (_) => _sendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.send, color: Colors.blueAccent),
-                  onPressed: _sendMessage,
+                  // Đổi màu nút xám xịt khi bị khóa cho người dùng biết
+                  icon: Icon(Icons.send, color: _isLoading ? Colors.grey : Colors.blueAccent),
+                  // 4. KHÓA NÚT BẤM VẬT LÝ
+                  onPressed: _isLoading ? null : _sendMessage,
                 )
               ],
             ),

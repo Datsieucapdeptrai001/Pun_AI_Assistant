@@ -13,63 +13,72 @@ class AutoListenScreen extends StatefulWidget {
 }
 
 class _AutoListenScreenState extends State<AutoListenScreen> {
-  late stt.SpeechToText _speech;
+  // Bỏ từ khóa 'late', khởi tạo ngay lập tức để giữ 1 instance duy nhất
+  final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   String _text = 'Nhấn vào nút Micro bên dưới và nói...';
   bool _isLoading = false;
-  
-  // CỜ BẢO VỆ TỐI CAO: Chống trùng lặp lệnh do Race Condition
   bool _hasSentRequest = false; 
-  
   final AudioPlayer _audioPlayer = AudioPlayer();
 
   @override
   void initState() {
     super.initState();
-    _speech = stt.SpeechToText();
     _initSpeech();
   }
 
   void _initSpeech() async {
     await Permission.microphone.request();
+    
     await _speech.initialize(
       onStatus: (status) {
-        print('Trạng thái Mic từ hệ thống: $status');
-        
+        // KIỂM TRA MOUNTED TRƯỚC KHI SETSTATE: Ngăn lỗi tràn bộ nhớ khi đã thoát màn hình
+        if (!mounted) return; 
+
         if (status == 'notListening' || status == 'done') {
           setState(() => _isListening = false);
           
-          // CHỐT CHẶN: Chỉ nổ súng nếu CHƯA từng gửi request trong phiên nói này
           if (!_hasSentRequest && 
               _text.isNotEmpty && 
               _text != 'Nhấn vào nút Micro bên dưới và nói...' && 
               _text != 'Đang nghe...' && 
               !_isLoading) {
             
-            _hasSentRequest = true; // Khóa chốt ngay lập tức!
+            _hasSentRequest = true; 
             _sendMessageToPun();
           }
         }
       },
       onError: (errorNotification) {
-        print('Lỗi Mic: $errorNotification');
-        setState(() => _isListening = false);
+        if (mounted) {
+          setState(() {
+            _isListening = false;
+            _text = 'Lỗi Mic, bấm nói lại nha!';
+          });
+        }
       },
     );
   }
 
   void _listen() async {
+    // Ép tắt mọi tiến trình cũ trước khi mở nghe mới
+    if (_speech.isListening) {
+      await _speech.stop();
+    }
+
     if (!_isListening) {
       setState(() {
         _isListening = true;
-        _hasSentRequest = false; // Reset lại cờ khi bắt đầu một phiên nói mới
+        _hasSentRequest = false; 
         _text = 'Đang nghe...';
       });
       _speech.listen(
         onResult: (result) {
-          setState(() {
-            _text = result.recognizedWords;
-          });
+          if (mounted) {
+            setState(() {
+              _text = result.recognizedWords;
+            });
+          }
         },
         localeId: 'vi_VN',
       );
@@ -80,19 +89,20 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   }
 
   Future<void> _sendMessageToPun() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
     String textToSend = _text; 
     
     try {
       final response = await ApiService.chatWithPun(textToSend, userType: widget.userType);
 
+      if (!mounted) return; // Chốt chặn: Nếu mami lỡ bấm thoát ra lúc AI đang suy nghĩ
       setState(() {
         if (response['status'] == 'success') {
           _text = response['reply_text'];
           if (response['audio_url'] != null) {
-            // Tăng lên 2 giây cho mami thoải mái đợi FPT nặn nhạc giống màn Chat chữ
             Future.delayed(const Duration(seconds: 2), () {
-              _audioPlayer.play(UrlSource(response['audio_url']));
+              if (mounted) _audioPlayer.play(UrlSource(response['audio_url']));
             });
           }
         } else {
@@ -100,14 +110,18 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
         }
       });
     } catch (e) {
-      setState(() => _text = 'Trời ơi mạng lác quá Pột ơi!');
+      if (mounted) setState(() => _text = 'Trời ơi mạng lác quá!');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   void dispose() {
+    // ÉP GIẢI PHÓNG PHẦN CỨNG TRIỆT ĐỂ KHI THOÁT MÀN HÌNH
+    if (_speech.isListening) {
+      _speech.stop();
+    }
     _speech.cancel();
     _audioPlayer.dispose();
     super.dispose();
