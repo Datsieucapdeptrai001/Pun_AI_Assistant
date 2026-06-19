@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'admin_chat_screen.dart';
+// THÊM ĐÚNG DÒNG IMPORT NÀY:
+import 'auto_listen_screen.dart'; 
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
@@ -14,6 +16,10 @@ class AppRouter {
         // Hứng cục dữ liệu (arguments) truyền từ Login sang
         final userType = settings.arguments as String? ?? 'guest';
         return MaterialPageRoute(builder: (_) => AdminChatScreen(userType: userType));
+        
+      // ĐĂNG KÝ THÊM MÀN HÌNH RẢNH TAY Ở ĐÂY NÈ PỘT:
+      case '/auto-listen':
+        return MaterialPageRoute(builder: (_) => const AutoListenScreen());
         
       default:
         return MaterialPageRoute(
