@@ -4,6 +4,9 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../services/api_service.dart';
 
+// 1. CHỐT CHẶN SINGLETON: Đưa Micro ra ngoài cùng, biến thành tài sản chung của toàn App
+final stt.SpeechToText globalSpeech = stt.SpeechToText();
+
 class AutoListenScreen extends StatefulWidget {
   final String userType;
   const AutoListenScreen({super.key, required this.userType});
@@ -13,8 +16,6 @@ class AutoListenScreen extends StatefulWidget {
 }
 
 class _AutoListenScreenState extends State<AutoListenScreen> {
-  // Bỏ từ khóa 'late', khởi tạo ngay lập tức để giữ 1 instance duy nhất
-  final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   String _text = 'Nhấn vào nút Micro bên dưới và nói...';
   bool _isLoading = false;
@@ -30,11 +31,11 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   void _initSpeech() async {
     await Permission.microphone.request();
     
-    await _speech.initialize(
+    // Mỗi lần mở màn hình, chỉ nạp lại cái Lỗ tai (onStatus) chứ không tạo ống mới
+    await globalSpeech.initialize(
       onStatus: (status) {
-        // KIỂM TRA MOUNTED TRƯỚC KHI SETSTATE: Ngăn lỗi tràn bộ nhớ khi đã thoát màn hình
         if (!mounted) return; 
-
+        
         if (status == 'notListening' || status == 'done') {
           setState(() => _isListening = false);
           
@@ -61,9 +62,9 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
   }
 
   void _listen() async {
-    // Ép tắt mọi tiến trình cũ trước khi mở nghe mới
-    if (_speech.isListening) {
-      await _speech.stop();
+    // Nếu Mic đang bị kẹt ở phiên trước, ép nó tắt đi trước khi nghe mới
+    if (globalSpeech.isListening) {
+      await globalSpeech.stop();
     }
 
     if (!_isListening) {
@@ -72,7 +73,8 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
         _hasSentRequest = false; 
         _text = 'Đang nghe...';
       });
-      _speech.listen(
+      
+      globalSpeech.listen(
         onResult: (result) {
           if (mounted) {
             setState(() {
@@ -84,7 +86,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
       );
     } else {
       setState(() => _isListening = false);
-      _speech.stop();
+      globalSpeech.stop();
     }
   }
 
@@ -96,7 +98,7 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
     try {
       final response = await ApiService.chatWithPun(textToSend, userType: widget.userType);
 
-      if (!mounted) return; // Chốt chặn: Nếu mami lỡ bấm thoát ra lúc AI đang suy nghĩ
+      if (!mounted) return; 
       setState(() {
         if (response['status'] == 'success') {
           _text = response['reply_text'];
@@ -118,11 +120,10 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
 
   @override
   void dispose() {
-    // ÉP GIẢI PHÓNG PHẦN CỨNG TRIỆT ĐỂ KHI THOÁT MÀN HÌNH
-    if (_speech.isListening) {
-      _speech.stop();
+    // 2. CHỐT CHẶN LIFECYCLE: Chỉ khóa van (stop), TUYỆT ĐỐI không đập ống (cancel)
+    if (globalSpeech.isListening) {
+      globalSpeech.stop();
     }
-    _speech.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -133,8 +134,9 @@ class _AutoListenScreenState extends State<AutoListenScreen> {
       appBar: AppBar(title: const Text('Pủn AI - Chế Độ Rảnh Tay')),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
-        onPressed: _listen,
-        backgroundColor: _isListening ? Colors.red : Colors.blueAccent,
+        // Khóa nút Mic lại nếu mạng đang load, chống bấm spam
+        onPressed: _isLoading ? null : _listen,
+        backgroundColor: _isLoading ? Colors.grey : (_isListening ? Colors.red : Colors.blueAccent),
         child: Icon(_isListening ? Icons.mic : Icons.mic_none, size: 35, color: Colors.white),
       ),
       body: Padding(

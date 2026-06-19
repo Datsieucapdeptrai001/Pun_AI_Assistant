@@ -15,7 +15,9 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final List<Map<String, String>> _messages = [];
   final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isLoading = false;
+  
+  // BIẾN QUYẾT ĐỊNH SỐ PHẬN KHÓA SPAM
+  bool _isLoading = false; 
 
   @override
   void dispose() {
@@ -25,18 +27,23 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
   }
 
   Future<void> _sendMessage() async {
+    // CHỐT CHẶN 1: Nếu đang load thì ĐỪNG LÀM GÌ CẢ, thoát luôn!
+    if (_isLoading) return; 
+
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
+    // Kích hoạt trạng thái Đóng băng UI ngay lập tức
     setState(() {
       _messages.add({'sender': 'user', 'text': text});
-      _isLoading = true;
+      _isLoading = true; 
     });
     _textController.clear();
 
     try {
       final response = await ApiService.chatWithPun(text, userType: widget.userType);
 
+      if (!mounted) return;
       setState(() {
         if (response['status'] == 'success') {
           final replyText = response['reply_text'];
@@ -44,7 +51,7 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           
           if (response['audio_url'] != null) {
             Future.delayed(const Duration(seconds: 2), () {
-              _audioPlayer.play(UrlSource(response['audio_url']));
+              if (mounted) _audioPlayer.play(UrlSource(response['audio_url']));
             });
           }
         } else {
@@ -52,11 +59,17 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
         }
       });
     } catch (error) {
+      if (!mounted) return;
       setState(() {
         _messages.add({'sender': 'pun', 'text': 'Mạng lag quá Pột ơi!'});
       });
     } finally {
-      setState(() => _isLoading = false);
+      // CHỐT CHẶN CUỐI: Chỉ khi xong xuôi hết mới nhả băng UI ra
+      if (mounted) {
+        setState(() {
+          _isLoading = false; 
+        });
+      }
     }
   }
 
@@ -69,12 +82,13 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
           IconButton(
             icon: const Icon(Icons.mic_none),
             tooltip: 'Chế độ rảnh tay',
-            onPressed: () => Navigator.pushNamed(context, '/auto-listen', arguments: widget.userType),
+            // Đóng băng nút chuyển màn hình nếu đang gửi tin nhắn dở dang
+            onPressed: _isLoading ? null : () => Navigator.pushNamed(context, '/auto-listen', arguments: widget.userType),
           ),
           IconButton(
             icon: const Icon(Icons.logout, color: Colors.redAccent),
             tooltip: 'Đăng xuất',
-            onPressed: () async {
+            onPressed: _isLoading ? null : () async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.remove('userType');
               if (mounted) {
@@ -108,7 +122,10 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
               },
             ),
           ),
+          
+          // Vòng xoay báo hiệu AI đang rặn câu trả lời
           if (_isLoading) const Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator()),
+          
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
@@ -116,22 +133,21 @@ class _AdminChatScreenState extends State<AdminChatScreen> {
                 Expanded(
                   child: TextField(
                     controller: _textController,
-                    // 1. KHÓA BÀN PHÍM KHI ĐANG LOAD
+                    // CHỐT CHẶN 2: Khóa cứng không cho gõ chữ khi đang load
                     enabled: !_isLoading, 
                     decoration: InputDecoration(
-                      // 2. THAY ĐỔI DÒNG CHỮ GỢI Ý ĐỂ BÁO HIỆU
                       hintText: _isLoading ? 'Pủn đang suy nghĩ...' : 'Nhập tin nhắn chọc Pủn...',
                       border: const OutlineInputBorder(),
                     ),
-                    // 3. KHÓA ENTER TRÊN BÀN PHÍM
+                    // CHỐT CHẶN 3: Vô hiệu hóa nút Enter từ bàn phím điện thoại
                     onSubmitted: _isLoading ? null : (_) => _sendMessage(),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  // Đổi màu nút xám xịt khi bị khóa cho người dùng biết
+                  // Đổi sang màu xám nhìn cho ra dáng bị khóa
                   icon: Icon(Icons.send, color: _isLoading ? Colors.grey : Colors.blueAccent),
-                  // 4. KHÓA NÚT BẤM VẬT LÝ
+                  // CHỐT CHẶN 4: Ép nút onPressed thành null (Flutter tự động khóa nút và cấm click)
                   onPressed: _isLoading ? null : _sendMessage,
                 )
               ],
